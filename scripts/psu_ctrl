@@ -1,0 +1,2 @@
+#!/bin/sh
+python3 -u -m test_equipment.psu_ctrl $@
