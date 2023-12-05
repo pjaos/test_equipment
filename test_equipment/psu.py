@@ -12,21 +12,20 @@ from pymodbus.client.sync import ModbusTcpClient, ModbusSerialClient
 class PSUBase(object):
     """@brief Define a generalised interface to power supply."""
 
-    PSU_TYPE = None
-    PSU_NAME = None
-
-    def __init__(self, uio):
+    def __init__(self, type, name, uio):
         """@brief Construct a power supply interface.
+           @param type The type of power supply (an int value).
+           @param name The name of the power supply type (a str value).
            @param uio A UIO instance or None. If a UIO instance is passed then debug messages
                   may be displayed when the _debug(msg) method is called."""
         self._uio = uio
-# PJA
-        # These attributes must be defined in subclasses
-#        if PSUBase.PSU_TYPE is None:
-#            raise NotImplementedError('Subclass must define the PSU_TYPE class attrbute.')
+        if type is None:
+            raise NotImplementedError('The power supply type must be defined.')
 
-#        if PSUBase.PSU_NAME is None:
-#            raise NotImplementedError('Subclass must define the PSU_NAME class attrbute.')
+        if name is None:
+            raise NotImplementedError('The power supply name must be defined.')
+        self._type = type
+        self._name = name
 
     def _debug(self, msg):
         """@brief Display a debug message."""
@@ -93,7 +92,7 @@ class DummyPSU(object):
         """@brief Construct a power supply interface.
            @param uio A UIO instance or None. If a UIO instance is passed then debug messages
                   may be displayed when the _debug(msg) method is called."""
-        super().__init__(uio)
+        super().__init__(DummyPSU.PSU_TYPE, DummyPSU.PSU_NAME, uio=uio)
 
     def connect(self, dev):
         """@brief Connect to the PSU.
@@ -169,7 +168,7 @@ class HMP2030PSU(PSUBase):
         """@brief Construct a power supply interface.
            @param uio A UIO instance or None. If a UIO instance is passed then debug messages
                   may be displayed when the _debug(msg) method is called."""
-        super().__init__(uio)
+        super().__init__(HMP2030PSU.PSU_TYPE, HMP2030PSU.PSU_NAME, uio=uio)
         self._visaDevice = None
 
     def connect(self, dev):
@@ -266,7 +265,7 @@ class TENMA722550PSU(PSUBase):
         """@brief Construct a power supply interface.
            @param uio A UIO instance or None. If a UIO instance is passed then debug messages
                   may be displayed when the _debug(msg) method is called."""
-        super().__init__(uio)
+        super().__init__(TENMA722550PSU.PSU_TYPE, TENMA722550PSU.PSU_NAME , uio=uio)
         self._serial = None
 
     def connect(self, dev):
@@ -479,7 +478,7 @@ class ETMXXXXP(PSUBase):
         """@brief Constructor
            @param uio  A UIO instance or None. If a UIO instance is passed then debug messages
                        may be displayed when the _debug(msg) method is called."""
-        super().__init__(uio)
+        super().__init__(ETMXXXXP.PSU_TYPE, ETMXXXXP.PSU_NAME, uio=uio)
         self._unit = 1 # The unit number on the modbus interface. As it's a serial interface
                        # only one unit is physically connected.
         # Modbus client connection
