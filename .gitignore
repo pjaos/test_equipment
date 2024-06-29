@@ -1,0 +1,3 @@
+dist
+poetry.lock
+test_equipment/__pycache__/

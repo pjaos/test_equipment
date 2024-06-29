@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "test-equipment"
+version = "1.0"
+description = "Interfaces to various pieces of test equipment."  # A short description of the application
+authors = ["Paul Austen <pjaos@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+p3lib = "^1.1.61"
+pyvisa = "*"
+pymodbus = "^2.5.3"
+
+[tool.poetry.scripts]
+psu_ctrl = "test_equipment.psu_ctrl:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
