@@ -77,9 +77,6 @@ class SerialPortFinder(object):
         return serDev
 
 
-"""
-# Example code
-
 def test():
     from p3lib.uio import UIO
     uio = UIO()
@@ -92,6 +89,6 @@ def test():
         dev = SerialPortFinder.GetDevice(idStr)
         uio.info(f"{idStr} matches {dev}")
 
-if __name__== '__main__':
+
+if __name__ == '__main__':
     test()
-"""
