@@ -160,7 +160,7 @@ def main():
 
     try:
         parser = argparse.ArgumentParser(
-            description="A description of what it does.", formatter_class=argparse.RawDescriptionHelpFormatter)
+            description="Control different PSU types.", formatter_class=argparse.RawDescriptionHelpFormatter)
         parser.add_argument(
             "-d", "--debug",  help="Enable debugging.", action='store_true')
         parser.add_argument(
