@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "test-equipment"
+version = "1.1"
+description = "Interfaces to various pieces of test equipment."  # A short description of the application
+authors = ["Paul Austen <pjaos@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+
+include = [
+    { path = "assets", format = ["sdist", "wheel"] },
+    { path = "pyproject.toml", format = ["sdist", "wheel"] },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+p3lib = "*"
+pyserial = "*"
+pyvisa-py = "*"
+pyvisa = "*"
+pymodbus = "*"
+
+[tool.poetry.scripts]
+psu_ctrl = "test_equipment.psu_ctrl:main"
+serial_helper = "test_equipment.serial_helper:test"
+visa_helper = "test_equipment.visa_helper:test"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
