@@ -13,16 +13,20 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-p3lib = "*"
+p3lib = "^1.1.107"
 pyserial = "*"
 pyvisa-py = "*"
 pyvisa = "*"
 pymodbus = "*"
+requests = "*"
 
 [tool.poetry.scripts]
 psu_ctrl = "test_equipment.psu_ctrl:main"
+shelly = "test_equipment.shelly:main"
+# These two are not so useful, really as example code.
 serial_helper = "test_equipment.serial_helper:test"
 visa_helper = "test_equipment.visa_helper:test"
+
 
 [build-system]
 requires = ["poetry-core"]
