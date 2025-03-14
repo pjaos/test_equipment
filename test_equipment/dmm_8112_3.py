@@ -10,6 +10,7 @@ from test_equipment.serial_helper import SerialPortFinder
 from p3lib.uio import UIO
 from p3lib.helper import logTraceBack
 
+
 class DMM8112(object):
     """@brief Responsible for an interface to R&S (Hameg) 8112-3 6.5 digit precision multimeter."""
 
@@ -112,7 +113,6 @@ class DMM8112(object):
     GROUP_0_SENSOR_TH_J = '1'
     GROUP_0_SENSOR_TH_K = '2'
 
-
     # 3rd character to select function, 1st char = 0', group/second char = '1'
     GROUP_1_AUTO_RANGE_FUNCTION = '0'
     GROUP_1_MEAS_TIME_FUNCTION = '1'
@@ -213,14 +213,13 @@ class DMM8112(object):
 
     # SENSOR_COMP 4'th character / parameter
     GROUP_1_SENSOR_COMP_EXT_ICE = '0'
-    GROUP_1_SENSOR_COMP_23C= '1'
+    GROUP_1_SENSOR_COMP_23C = '1'
     GROUP_1_SENSOR_COMP_FRONT = '2'
 
     # TEST 4'th character / parameter
     GROUP_1_TEST_RAM = '1'
     GROUP_1_TEST_RAM_GOOD = '4'
     GROUP_1_TEST_RAM_FAIL = '5'
-
 
     # 3rd character to select function, 1st char = 0', group/second char = '2'
     GROUP_2_COM_RS232_FUNCTION = '2'
@@ -278,11 +277,10 @@ class DMM8112(object):
            @param dev The serial port to use. This maybe the device name, the serial
                       port serial number or the USB location string.
                       See SerialPortFinder.GetDevice() for more info."""
-
         if not self._serial:
             serialDev = SerialPortFinder.GetDevice(dev)
             if serialDev is None:
-                raise Exception(f"No serial port found.")
+                raise Exception("No serial port found.")
 
             self._serial = serial.Serial()
             self._serial.port = serialDev
@@ -296,17 +294,11 @@ class DMM8112(object):
             self._serial.timeout = DMM8112.TIMEOUT_SECONDS
             self._serial.open()
             self._serial.setDTR(True)  # DTR on
-            self._serial.setRTS(True)  # RTS on
-            print(f"PJA: self._serial.baudrate={self._serial.baudrate}")
-            print(f"PJA: self._serial.is_open={self._serial.is_open}")
+            self._serial.setRTS(False)  # RTS on
             if not self._serial.is_open:
-                raise Exception("Failed to open {serialDev}. check it's not in use.")
+                raise Exception(
+                    "Failed to open {serialDev}. check it's not in use.")
             self._debug(f"Connected to {serialDev}")
-
-            # Initially read the PSU voltage to check communication with the DMM.
-            # PJA TODO
-    #        voltage = self.getVolts()
-    #        self._debug("PSU Voltage = {:.3f} volts".format(voltage))
 
     def disconnect(self):
         """@brief Disconnect from the instrument."""
@@ -314,30 +306,41 @@ class DMM8112(object):
             self._serial.close()
             self._serial = None
 
-    def _send(self, group, function, parameter):
+    def send_cmd(self, group, function, parameter):
         """@brief Set the state of the meter.
            @param group The command group ('0','1' or '2').
            @param function The function select character.
            @param parameter The parameter for the selected function."""
         # Check the arguments are valid
         if group not in DMM8112.VALID_GROUPS:
-            raise Exception(f"{group} is an invalid group ({",".join(DMM8112.VALID_GROUPS)} are valid.)")
+            raise Exception(
+                f"{group} is an invalid group ({",".join(DMM8112.VALID_GROUPS)} are valid.)")
 
         if group == DMM8112.VALID_GROUPS[0]:
             if function not in DMM8112.GROUP_0_VALID_FUNCTIONS:
-                raise Exception(f"{function} is an invalid function for group 0 commands ({",".join(DMM8112.VALID_GROUP_0_FUNCTIONS)} are valid.)")
+                raise Exception(
+                    f"{function} is an invalid function for group 0 commands ({",".join(DMM8112.VALID_GROUP_0_FUNCTIONS)} are valid.)")
 
         if group == DMM8112.VALID_GROUPS[1]:
             if function not in DMM8112.GROUP_1_VALID_FUNCTIONS:
-                raise Exception(f"{function} is an invalid function for group 1 commands ({",".join(DMM8112.VALID_GROUP_1_FUNCTIONS)} are valid.)")
+                raise Exception(
+                    f"{function} is an invalid function for group 1 commands ({",".join(DMM8112.VALID_GROUP_1_FUNCTIONS)} are valid.)")
 
         if group == DMM8112.VALID_GROUPS[2]:
             if function not in DMM8112.GROUP_2_VALID_FUNCTIONS:
-                raise Exception(f"{function} is an invalid function for group 2 commands ({",".join(DMM8112.VALID_GROUP_2_FUNCTIONS)} are valid.)")
+                raise Exception(
+                    f"{function} is an invalid function for group 2 commands ({",".join(DMM8112.VALID_GROUP_2_FUNCTIONS)} are valid.)")
 
         cmd_string = '0' + group + function + parameter + "\r"
         self._debug(f"CMD: {cmd_string}")
+        # The command does not always appear to be acted upon by the meter ???
+        # Workaround this by sending the command 10 times.
+        # for _ in range(0,10):
         self._serial.write(cmd_string.encode())
+        self._serial.flush()
+        # The meter appears to need some time to process the cmd before sending
+        # another or it ignores cmds.
+        sleep(0.1)
 
     def _get_full_function_name(self, function_name):
         ff_name = None
@@ -373,15 +376,9 @@ class DMM8112(object):
         if parameter_name is None:
             raise Exception("Parameter name not set.")
 
-        print(f"PJA: function_name ={function_name}")
-        print(f"PJA: parameter_name={parameter_name}")
-
         full_function_name = self._get_full_function_name(function_name)
-        print(f"PJA: full_function_name={full_function_name}")
         full_parameter_name = self._get_full_parameter_name(parameter_name)
-        print(f"PJA: full_parameter_name={full_parameter_name}")
         group_name = self._get_group_name(full_parameter_name)
-        print(f"PJA: group_name={group_name}")
 
         if hasattr(DMM8112, group_name):
             char2 = getattr(DMM8112, group_name)
@@ -398,13 +395,14 @@ class DMM8112(object):
         else:
             raise Exception(f"{full_parameter_name} parameter name not found.")
 
-        self._send(char2, char3, char4)
+        self.send_cmd(char2, char3, char4)
 
     def get_str(self):
         """@brief Get a response on the serial port."""
+        self._serial.reset_input_buffer()
         return self._serial.readline().decode()
 
-    def _get_float(self):
+    def get_float(self):
         """@return a float value on the serial port."""
         value = None
         rx_str = self.get_str()
@@ -423,14 +421,16 @@ class DMM8112(object):
         """@param list the arguments that the user can pass."""
         constant_names = self._get_attr_list()
         result_dict = {}
-        for group in ('GROUP_0','GROUP_1','GROUP_2'):
+        for group in ('GROUP_0', 'GROUP_1', 'GROUP_2'):
             group_list = [s for s in constant_names if s.startswith(group)]
-            group_0_function_list = [s for s in group_list if s.endswith('_FUNCTION')]
+            group_0_function_list = [
+                s for s in group_list if s.endswith('_FUNCTION')]
             for name in group_0_function_list:
                 _name = name.replace("_FUNCTION", "")
                 __name = _name.replace(group, "")
                 _name = name.replace("_FUNCTION", "")
-                param_list = [s for s in group_list if s.startswith(_name) and not s.endswith('_FUNCTION')]
+                param_list = [s for s in group_list if s.startswith(
+                    _name) and not s.endswith('_FUNCTION')]
                 d_list = []
                 for param in param_list:
                     _param = param.replace(group, "")
@@ -487,9 +487,6 @@ def main():
                             help="Read any data being sent on the serial port.",
                             action='store_true')
 
-
-
-
         options = parser.parse_args()
 
         uio.enableDebug(options.debug)
@@ -507,14 +504,10 @@ def main():
             try:
                 dmm.connect(options.port)
                 while True:
-#                    line = dmm.get_str()
-#                    uio.info(line)
-
-                    value = dmm._get_float()
+                    value = dmm.get_float()
                     uio.info(f"{value}")
             finally:
                 dmm.disconnect()
-
 
     # If the program throws a system exit exception
     except SystemExit:
