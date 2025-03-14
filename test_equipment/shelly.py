@@ -599,7 +599,6 @@ class CalibrateShelly1PMPlus(object):
             if not proceed:
                 raise Exception("User aborted calibration process.")
 
-
     def performCalibration(self):
         """@brief Perform calibration on the Shelly 1PM Plus unit."""
         self._check_for_cal_values(self._options.volts, self._options.amps)
