@@ -65,7 +65,7 @@ class CM2100B(object):
         start_time = time()
         async with BleakClient(self._dev_address) as client:
             elapsed_secs = time() - start_time
-            self._from_cm2100b_queue.put(f"Connected: {client.is_connected}, took {elapsed_secs:.1f} seconds.")
+            self._from_cm2100b_queue.put(f"Connected: Took {elapsed_secs:.1f} seconds.")
 
             # Subscribe to the terminal characteristic for notifications (if applicable)
             await client.start_notify(CM2100B.TERMINAL_CHARACTERISTIC_UUID, self._notification_handler)
@@ -239,7 +239,7 @@ class CM2100B(object):
     def connect(self, mac_address):
         """@brief Read the current value measured by the CM2100B meter."""
         self._dev_address = mac_address
-        self._info("CM2100B reading current values...")
+        self._info("Connecting to CM2100B AC/DC Clamp Meter.")
         # Start thread in background to read data from the DMM
         thread = threading.Thread(target=self.start_reading, daemon=True)
         thread.start()
@@ -249,6 +249,7 @@ class CM2100B(object):
                 self._info(rx_obj)
                 if isinstance(rx_obj, str):
                     if rx_obj.startswith('Connected:'):
+                        self._info("Connected to CM2100B AC/DC Clamp Meter.")
                         break
 
             except queue.Empty:
@@ -316,6 +317,7 @@ class CM2100B(object):
         # connection has shut down.
         while self._from_cm2100b_queue.empty():
             sleep(0.1)
+        self._info("Disconnected from CM2100B AC/DC Clamp Meter.")
 
 
 def main():
