@@ -275,8 +275,11 @@ class CM2100B(object):
             except queue.Empty:
                 sleep(0.1)
 
-    def get_ac_amps(self, waitfor_next=True):
-        """@brief Get the amps measured by the meter."""
+    def get_meter_reading(self, waitfor_next=True):
+        """@brief Get the amps measured by the meter.
+                  connect() must be called successfully before calling this method.
+           @return The meter reading. The number is returned first followed
+                   by the string indicating the meter switch setting."""
         return_value = None
         if waitfor_next:
             while not self._from_cm2100b_queue.empty():
@@ -287,20 +290,21 @@ class CM2100B(object):
         if CM2100B.FUNCTION_STRING in response_dict and \
            CM2100B.READING_VALUE in response_dict:
             func_str = response_dict[CM2100B.FUNCTION_STRING]
-            if func_str != 'AC A':
-                raise Exception("CM2100B not set to measure AC A")
             return_value = response_dict[CM2100B.READING_VALUE]
 
-        return return_value
+        else:
+            raise Exception('CM2100B read error.')
 
-    def show_ac_amps(self, mac_address):
-        """@brief Show the AC amps value from the CM2100B.
+        return f"{return_value} {func_str}"
+
+    def show(self, mac_address):
+        """@brief Show any value read from the CM2100B.
            @param mac_address The CM2100B mac address."""
         try:
             self.connect(mac_address)
             while True:
-                ac_amps = self.get_ac_amps()
-                self._info(f"{ac_amps} Amps.")
+                reading = self.get_meter_reading()
+                self._info(f"{reading}")
 
         finally:
             self.disconnect()
@@ -313,21 +317,6 @@ class CM2100B(object):
         while self._from_cm2100b_queue.empty():
             sleep(0.1)
 
-# PJA not used
-    def get_response(self):
-        """@brief Get a single response from the CM2100B."""
-        rx_value = None
-        try:
-            rx_value = self._from_cm2100b_queue.get_nowait()
-
-        except queue.Empty:
-            pass
-
-        return rx_value
-
-    def stop_reading(self):
-        self.disconnect()
-
 
 def main():
     """@brief Program entry point"""
@@ -337,9 +326,9 @@ def main():
         parser = argparse.ArgumentParser(description="An interface to the CM2100B current clamp DMM.",
                                          formatter_class=argparse.RawDescriptionHelpFormatter)
         parser.add_argument("-d", "--debug",   action='store_true', help="Enable debugging.")
-        parser.add_argument("-l", "--list",    action='store_true', help="List bluetooth devices.")
-        parser.add_argument("-r", "--read",    action='store_true', help="Read values from the CM2100B over bluetooth.")
         parser.add_argument("-m", "--mac",     help="The bluetooth MAC address of the CM2100B meter.", default=None)
+        parser.add_argument("-r", "--read",    action='store_true', help="Read values from the CM2100B over bluetooth.")
+        parser.add_argument("-l", "--list",    action='store_true', help="List bluetooth devices.")
 
         options = parser.parse_args()
 
@@ -351,7 +340,7 @@ def main():
 
         elif options.read:
             cm2100b = CM2100B(uio=uio)
-            cm2100b.show_ac_amps(options.mac)
+            cm2100b.show(options.mac)
 
     # If the program throws a system exit exception
     except SystemExit:
