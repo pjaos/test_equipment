@@ -445,8 +445,6 @@ class CalibrateShelly1PMPlus(object):
                 if maxI - minI < 0.5:
                     self._uio.info(f"Load current is stable at {amps} amps.")
                     break
-            # PJA TODO , may not need this
-            sleep(1)
 
     def _calibrate_current(self,
                            cm2100b,
@@ -465,10 +463,6 @@ class CalibrateShelly1PMPlus(object):
            @param load_off_on_completion If True turn the load off on completion.
            @return The average error in the current reading if calibration_check = False.
                    The max error if calibration_check = True."""
-        if self._options.mac is None:
-            raise Exception(
-                "Please define bluetooth mac address of the OWON CM2100B current clamp meter used to measure the AC current.")
-
         try:
             # Read some stats from the Shelly 1PM Plus module.
             self._s1PM.update_stats()
@@ -499,8 +493,6 @@ class CalibrateShelly1PMPlus(object):
                 else:
                     self._uio.warn(
                         f"IGNORED VALUE: CM2100B AC Amps = {dmm_ac_amps}")
-                # PJA TODO , may not need this
-                sleep(1)
 
             if calibration_check:
                 max_error = max(delta_list, key=abs)
@@ -525,15 +517,10 @@ class CalibrateShelly1PMPlus(object):
 
     def _performVoltageCalibration(self):
         """@brief Perform the voltage calibration process."""
-        if self._options.port is None:
-            raise Exception(
-                "Please define the serial port connected to the R&S 8112-3 Precision Multimeter.")
-
         # Reset stored voltage calibration to 0.0
         self.reset_voltage_cal()
         # Get the max voltage reading error without calibration (60 readings)
-        uncalibrated_max_error = self._calibrate_voltage(
-            calibration_check=True)
+        uncalibrated_max_error = self._calibrate_voltage(calibration_check=True)
         # Calibrate the Shelly 1PM Plus voltage reading.
         self._calibrate_voltage(calibration_check=False)
         # Get the max voltage reading error with calibration (60 readings)
@@ -550,10 +537,6 @@ class CalibrateShelly1PMPlus(object):
 
     def _performCurrentCalibration(self):
         """@brief Perform the current calibration process."""
-        if self._options.mac is None:
-            raise Exception(
-                "Please define the bluetooth MAC address of the OWON CM2100B meter used to measure the AC current.")
-
         try:
             cm2100b = CM2100B(uio=self._uio)
             cm2100b.connect(self._options.mac)
@@ -595,7 +578,7 @@ class CalibrateShelly1PMPlus(object):
 
         elif amps_cal:
             amps_cal_offset = self._s1PM.get_amps_cal_offset()
-            self._uio.info(f"Existing current calibration offset = {amps_cal_offset:.3f} volts.")
+            self._uio.info(f"Existing current calibration offset = {amps_cal_offset:.3f} amps.")
             if amps_cal_offset != 0:
                 ask_user = True
 
@@ -603,7 +586,7 @@ class CalibrateShelly1PMPlus(object):
             volts_cal_offset = self._s1PM.get_volts_cal_offset()
             self._uio.info(f"Existing voltage calibration offset = {volts_cal_offset:.3f} volts.")
             amps_cal_offset = self._s1PM.get_amps_cal_offset()
-            self._uio.info(f"Existing current calibration offset = {amps_cal_offset:.3f} volts.")
+            self._uio.info(f"Existing current calibration offset = {amps_cal_offset:.3f} amps.")
             if volts_cal_offset != 0 or amps_cal_offset != 0:
                 ask_user = True
 
@@ -612,9 +595,29 @@ class CalibrateShelly1PMPlus(object):
             if not proceed:
                 raise Exception("User aborted calibration process.")
 
+    def _check_cmd_line_args(self):
+        """@brief Check tha the command line args are valid."""
+        # If only calibrating voltage
+        if self._options.volts:
+            check_port = True
+
+        elif self._options.amps:
+            check_mac = True
+
+        else:
+            check_port = True
+            check_mac = True
+
+        if check_port and self._options.port is None:
+            raise Exception("Use -p/--port to define the serial port connected to the R&S 8112-3 Precision Multimeter.")
+
+        if check_mac and self._options.mac is None:
+            raise Exception("Use -m/--mac to define the bluetooth MAC address of the OWON CM2100B AC/DC Clamp Ammeter.")
+
     def performCalibration(self):
         """@brief Perform calibration on the Shelly 1PM Plus unit."""
         self._check_for_cal_values(self._options.volts, self._options.amps)
+        self._check_cmd_line_args()
 
         self._cal_msg_lines = []
         if self._options.volts:
@@ -624,8 +627,13 @@ class CalibrateShelly1PMPlus(object):
             self._performCurrentCalibration()
 
         else:
-            self._performVoltageCalibration()
+            # We perform current cal first because the CM2100B meter has to be set
+            # into bluetooth mode at the start of the cal process. IT drops out of
+            # bluetooth mode after a period of time. The voltage cal time may mean
+            # that by the time the current cal process starts the CM2100B drops out
+            # of bluetooth mode. So we run the current cal first.
             self._performCurrentCalibration()
+            self._performVoltageCalibration()
 
         for line in self._cal_msg_lines:
             self._uio.info(line)
