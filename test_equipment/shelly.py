@@ -406,12 +406,30 @@ class CalibrateShelly1PMPlus(object):
         self._uio.info(
             f"{id}: Reset the amps calibration offset to 0.0 volts.")
 
+    def _get_ac_amps(self, cm2100B):
+        """@brief Get the AC amps read by the CM2100B clamp meter."""
+        amps = None
+        reading = cm2100B.get_meter_reading()
+        if reading.endswith(" AC A"):
+            elems = reading.split()
+            if len(elems) > 0:
+                try:
+                    amps = float(elems[0])
+                except ValueError:
+                    pass
+        else:
+            raise Exception("The CM2100B is not set to read AC Amps: '{reading}'")
+
+        if amps is None:
+            raise Exception("Failed to read amps from the CM2100B meter.")
+        return amps
+
     def _waitfor_load_current(self, cm2100B):
         """@brief Turn on the load and wait for the load current to settle.
            @param cm2100B A CM2100B instance providing an interface to the CM2100B current clamp meter."""
         current_reading_list = []
         while True:
-            amps = cm2100B.get_amps()
+            amps = self._get_ac_amps(cm2100B)
             self._uio.info(f"Load current = {amps:.2f} Amps.")
             if amps < 5.0:
                 self._uio.info("Waiting for load current to reach 5 amps.")
@@ -430,12 +448,8 @@ class CalibrateShelly1PMPlus(object):
             # PJA TODO , may not need this
             sleep(1)
 
-    def _init_amps_dmm(self, cm2100B):
-        """@brief Init the voltage DMM.
-           @param cm2100B A CM2100B instance."""
-        print("PJA Add code here to init CM210B")
-
     def _calibrate_current(self,
+                           cm2100b,
                            seconds=60,
                            calibration_check=False,
                            load_off_on_completion=True):
@@ -444,6 +458,7 @@ class CalibrateShelly1PMPlus(object):
                   is constantly changing by larger or smaller amounts and the load
                   we need to apply to calibrate it. A 2kW fan heater is used to
                   provide the load required to calibrate the current.
+           @param cmb2100b A CM2100B instance connected to a CM2100b meter over bluetooth.
            @param seconds The number of seconds to average values over.
            @param calibration_check If True do not perform calibration but check the
                   max error in the current read.
@@ -454,23 +469,21 @@ class CalibrateShelly1PMPlus(object):
             raise Exception(
                 "Please define bluetooth mac address of the OWON CM2100B current clamp meter used to measure the AC current.")
 
-        cm2100B = CM2100B(self._options.mac, uio=self._uio)
         try:
             # Read some stats from the Shelly 1PM Plus module.
             self._s1PM.update_stats()
             # Get the id of this unit.
             id = self._s1PM.get_unit_id()
-            self._init_amps_dmm(cm2100B)
             # We ensure the load is on as we need a load current in order to start the calibration process.
             self._s1PM.turn_on(True)
             # Wait for the load current to stablise.
-            self._waitfor_load_current(cm2100B)
+            self._waitfor_load_current(cm2100b)
 
             delta_list = []
 
             start_time = time()
             while time() < start_time + seconds:
-                dmm_ac_amps = cm2100B.get_amps()
+                dmm_ac_amps = self._get_ac_amps(cm2100b)
                 if dmm_ac_amps is not None:
                     self._s1PM.update_stats()
                     if calibration_check:
@@ -508,7 +521,6 @@ class CalibrateShelly1PMPlus(object):
             if load_off_on_completion:
                 # We ensure the load is off on completion.
                 self._s1PM.turn_on(False)
-            cm2100B.disconnect()
         return return_value
 
     def _performVoltageCalibration(self):
@@ -543,30 +555,31 @@ class CalibrateShelly1PMPlus(object):
                 "Please define the bluetooth MAC address of the OWON CM2100B meter used to measure the AC current.")
 
         try:
+            cm2100b = CM2100B(uio=self._uio)
+            cm2100b.connect(self._options.mac)
             # Reset stored voltage calibration to 0.0
             self.reset_current_cal()
             # Get the max current reading error with calibration (60 readings)
-            uncalibrated_max_error = self._calibrate_current(
-                calibration_check=True, load_off_on_completion=False)
+            uncalibrated_max_error = self._calibrate_current(cm2100b,
+                                                             calibration_check=True,
+                                                             load_off_on_completion=False)
             # Calibrate the Shelly 1PM Plus current reading.
-            self._calibrate_current(
-                calibration_check=False, load_off_on_completion=False)
+            self._calibrate_current(cm2100b,
+                                    calibration_check=False,
+                                    load_off_on_completion=False)
             # Get the max current reading error with calibration (60 readings)
-            calibrated_max_error = self._calibrate_current(
-                calibration_check=True)
+            calibrated_max_error = self._calibrate_current(cm2100b,
+                                                           calibration_check=True)
 
-            percentage_improvement = (
-                abs(uncalibrated_max_error) / abs(calibrated_max_error))*100.0
-            self._cal_msg_lines.append(
-                f"Un calibrated current error = {uncalibrated_max_error} amps.")
-            self._cal_msg_lines.append(
-                f"Calibrated current error    = {calibrated_max_error} amps.")
-            self._cal_msg_lines.append(
-                f"The calibration process improved the current reading accuracy by {percentage_improvement:.0f} %.")
+            percentage_improvement = (abs(uncalibrated_max_error) / abs(calibrated_max_error))*100.0
+            self._cal_msg_lines.append(f"Un calibrated current error = {uncalibrated_max_error} amps.")
+            self._cal_msg_lines.append(f"Calibrated current error    = {calibrated_max_error} amps.")
+            self._cal_msg_lines.append(f"The calibration process improved the current reading accuracy by {percentage_improvement:.0f} %.")
 
         finally:
             # We ensure the load is off on completion.
             self._s1PM.turn_on(False)
+            cm2100b.disconnect()
 
     def _check_for_cal_values(self, cal_volts, amps_cal):
         """@brief Check for any existing calibration values and ask user for confirmation if values already exist.
