@@ -42,6 +42,7 @@ class CM2100B(object):
 
     FUNCTION_STRING = "FUNCTION_STRING"
     READING_VALUE = "READING_VALUE"
+    DISCONNECTED_MSG = "Disconnected: "
 
     def __init__(self, uio=None):
         """@brief Constructor.
@@ -82,7 +83,7 @@ class CM2100B(object):
                 await asyncio.sleep(.2)
 
         await client.disconnect()
-        self._from_cm2100b_queue.put(f"Disconnected: {client.is_connected}.")
+        self._from_cm2100b_queue.put(CM2100B.DISCONNECTED_MSG)
 
     def _notification_handler(self, sender: int, data: bytearray):
         """@brief Notification handler function to handle incoming data from the terminal.
@@ -315,8 +316,17 @@ class CM2100B(object):
         self._to_cm2100b_queue.put(CM2100B.SHUTDOWN_CMD)
         # Wait to receive confirmation that the bluetooth
         # connection has shut down.
-        while self._from_cm2100b_queue.empty():
-            sleep(0.1)
+        start_time = time()
+        while True:
+            if not self._from_cm2100b_queue.empty():
+                msg = self._from_cm2100b_queue.get()
+                if isinstance(msg, str):
+                    if msg.startswith(CM2100B.DISCONNECTED_MSG):
+                        break
+            if time() > start_time+15:
+                raise Exception("Failed to disconnect from CM2100B AC/DC Clamp Ammeter.")
+            sleep(0.25)
+
         self._info("Disconnected from CM2100B AC/DC Clamp Meter.")
 
 
