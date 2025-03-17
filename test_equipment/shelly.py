@@ -691,12 +691,12 @@ def main():
 
         elif options.stats:
             stats_dict = ss.update_stats()
-            uio.info(
-                f"WATTS:   {stats_dict[Shelly1PMPlusInterface.STATS_POWER_KEY]}")
-            uio.info(
-                f"VOLTS:   {stats_dict[Shelly1PMPlusInterface.STATS_VOLTAGE_KEY]}")
-            uio.info(
-                f"AMPS:    {stats_dict[Shelly1PMPlusInterface.STATS_CURRENT_KEY]}")
+            cal_volts = ss.get_calibrated_voltage()
+            cal_amps = ss.get_calibrated_current()
+
+            uio.info(f"WATTS:   {stats_dict[Shelly1PMPlusInterface.STATS_POWER_KEY]} (un-calibrated)")
+            uio.info(f"VOLTS:   {cal_volts:.1f} (calibrated), {stats_dict[Shelly1PMPlusInterface.STATS_VOLTAGE_KEY]} un-calibrated")
+            uio.info(f"AMPS:    {cal_amps:.2f} (calibrated),  {stats_dict[Shelly1PMPlusInterface.STATS_CURRENT_KEY]}  un-calibrated")
 
         elif options.calibrate:
             calS1PMP = CalibrateShelly1PMPlus(uio, options, ss)
